@@ -16,7 +16,7 @@ server.listen()
 print("Server is running...")
 
 def broadcast(message):
-    for client in clients[:]:  # Use a shallow copy
+    for client in clients[:]:  # Shallow copy to avoid issues while modifying list
         try:
             client.send(message)
         except BrokenPipeError:
@@ -27,14 +27,15 @@ def broadcast(message):
 
 def handle(client):
     try:
-        username = client.recv(1024).decode('utf-8').strip()
+        data = client.recv(1024).decode('utf-8', errors='ignore')
 
-        # Ignore HTTP health checks or bots
-        if username.startswith("GET") or username.startswith("HEAD") or "HTTP" in username:
-            print("Ignored HTTP client:", username)
+        # Ignore HTTP clients (Render's health checks, bots, etc.)
+        if any(line.startswith(('GET', 'HEAD', 'POST')) or 'HTTP' in line for line in data.splitlines()):
+            print("Ignored HTTP client:\n", data)
             client.close()
             return
 
+        username = data.strip()
         clients.append(client)
         print(f"{username} connected.")
         broadcast(f"{username} joined the chat!".encode('utf-8'))
